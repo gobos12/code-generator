@@ -206,6 +206,7 @@ func createApiOperation(shape Shape, name, serviceAlias string) *awssdkmodel.Ope
 // from the apiv2 Shape.
 func createApiShape(shape Shape) (*awssdkmodel.Shape, error) {
 	isException := shape.isException()
+
 	apiShape := &awssdkmodel.Shape{
 		Type:       shape.Type,
 		Exception:  isException,

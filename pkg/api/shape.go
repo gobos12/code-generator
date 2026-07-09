@@ -27,19 +27,19 @@ type XMLInfo struct {
 
 // A ShapeRef defines the usage of a shape within the API.
 type ShapeRef struct {
-	API           *API   `json:"-"`
-	Shape         *Shape `json:"-"`
-	Documentation string `json:"-"`
-	DefaultValue  string `json:"-"`
-	AddedDefault  bool   `json:"-"`
-	ClientOptional bool  `json:"-"`
-	ShapeName     string `json:"shape"`
-	Location      string
-	LocationName  string
-	QueryName     string
-	Flattened     bool
-	Streaming     bool
-	XMLAttribute  bool
+	API            *API   `json:"-"`
+	Shape          *Shape `json:"-"`
+	Documentation  string `json:"-"`
+	DefaultValue   string `json:"-"`
+	AddedDefault   bool   `json:"-"`
+	ClientOptional bool   `json:"-"`
+	ShapeName      string `json:"shape"`
+	Location       string
+	LocationName   string
+	QueryName      string
+	Flattened      bool
+	Streaming      bool
+	XMLAttribute   bool
 
 	// References of struct members will include their originally modeled
 	// member name for cross references.
@@ -434,7 +434,7 @@ func goType(s *Shape, withPkgName bool) string {
 		return "*string"
 	case "blob":
 		return "[]byte"
-	case "byte", "short", "integer", "long", "primitiveInteger":
+	case "byte", "short", "integer", "long", "primitiveInteger", "intEnum":
 		return "*int64"
 	case "float", "double":
 		return "*float64"
@@ -1101,6 +1101,11 @@ func (s *ShapeRef) IsNonPointerInSDK() bool {
 	// pointer regardless of the default value. See NullableIndex in smithy-go.
 	if s.AddedDefault || s.ClientOptional {
 		return false
+	}
+	// Smithy intEnum shapes are always non-pointer value types in
+	// aws-sdk-go-v2 — they are integer aliases with no nil state.
+	if s.Shape != nil && s.Shape.Type == "intEnum" {
+		return true
 	}
 	// Determine the effective default value: prefer the ref, fall back to shape
 	defaultVal := s.DefaultValue

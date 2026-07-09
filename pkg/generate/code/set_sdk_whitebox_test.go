@@ -93,6 +93,32 @@ func TestSetSDKForScalar(t *testing.T) {
 `,
 		},
 		{
+			// An intEnum is inherently a non-pointer value SDK field (recognized
+			// by IsNonPointerInSDK via its "intEnum" type), so the write path
+			// assigns a value, not a pointer: `res.EngineVersion = engineVersionCopy`.
+			name:            "intEnum scalar (value-type SDK field)",
+			targetFieldName: "EngineVersion",
+			targetVarName:   "res",
+			targetVarType:   "structure",
+			sourceFieldPath: "EngineVersion",
+			sourceVarName:   "ko.Spec.EngineVersion",
+			isListMember:    false,
+			shapeRef: &awssdkmodel.ShapeRef{
+				Shape: &awssdkmodel.Shape{
+					Type: "intEnum",
+				},
+				OriginalMemberName: "EngineVersion",
+			},
+			indentLevel: 1,
+			expected: `	engineVersionCopy0 := *ko.Spec.EngineVersion
+	if engineVersionCopy0 > math.MaxInt32 || engineVersionCopy0 < math.MinInt32 {
+		return nil, fmt.Errorf("error: field EngineVersion is of type int32")
+	}
+	engineVersionCopy := int32(engineVersionCopy0)
+	res.EngineVersion = engineVersionCopy
+`,
+		},
+		{
 			name:            "float scalar",
 			targetFieldName: "Temperature",
 			targetVarName:   "res",
@@ -195,6 +221,69 @@ func TestSetSDKForScalar(t *testing.T) {
 			)
 
 			assert.Equal(tc.expected, result, "setSDKForScalar() did not return expected result for %s", tc.name)
+		})
+	}
+}
+
+func TestSetResourceForScalar(t *testing.T) {
+	assert := assert.New(t)
+
+	testCases := []struct {
+		name        string
+		targetVar   string
+		sourceVar   string
+		shapeRef    *awssdkmodel.ShapeRef
+		indentLevel int
+		isList      bool
+		isUnion     bool
+		expected    string
+	}{
+		{
+			// Plain integer: the SDK field is a *pointer*
+			// (HasDefaultValue() == false), so the read path dereferences the
+			// source before the int64 cast: `int64(*resp.MaxKeys)`.
+			name:        "integer scalar (pointer SDK field)",
+			targetVar:   "ko.Spec.MaxKeys",
+			sourceVar:   "resp.MaxKeys",
+			indentLevel: 1,
+			shapeRef: &awssdkmodel.ShapeRef{
+				Shape: &awssdkmodel.Shape{
+					Type: "integer",
+				},
+				OriginalMemberName: "MaxKeys",
+			},
+			expected: "\tmaxKeysCopy := int64(*resp.MaxKeys)\n\tko.Spec.MaxKeys = &maxKeysCopy\n",
+		},
+		{
+			// An intEnum is inherently a non-pointer value SDK field (recognized
+			// by IsNonPointerInSDK via its "intEnum" type), so the read path must
+			// NOT dereference the source: `int64(resp.EngineVersion)` (no leading *).
+			name:        "intEnum scalar (value-type SDK field)",
+			targetVar:   "ko.Spec.EngineVersion",
+			sourceVar:   "resp.EngineVersion",
+			indentLevel: 1,
+			shapeRef: &awssdkmodel.ShapeRef{
+				Shape: &awssdkmodel.Shape{
+					Type: "intEnum",
+				},
+				OriginalMemberName: "EngineVersion",
+			},
+			expected: "\tengineVersionCopy := int64(resp.EngineVersion)\n\tko.Spec.EngineVersion = &engineVersionCopy\n",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := setResourceForScalar(
+				tc.targetVar,
+				tc.sourceVar,
+				tc.shapeRef,
+				tc.indentLevel,
+				tc.isList,
+				tc.isUnion,
+			)
+
+			assert.Equal(tc.expected, result, "setResourceForScalar() did not return expected result for %s", tc.name)
 		})
 	}
 }
